@@ -56,7 +56,7 @@ ElseIf supportDays = 5 Then
         If UBound(Split(CStr(CDbl(receivedTime)), ".")) <= 0 Then
         WeekendHrs = WeekendHrs + WorksheetFunction.Median(0, ShiftEndTime, ShiftStartTime)
         Else
-        WeekendHrs = WeekendHrs + WorksheetFunction.Median(WorksheetFunction.MOD(FridayDate, 1), ShiftStartTime, ShiftEndTime)
+        WeekendHrs = WeekendHrs + WorksheetFunction.Median(Split(CStr(CDbl(FridayDate)), ".")(1), ShiftStartTime, ShiftEndTime)
         End If
     Else
         WeekendHrs = WeekendHrs + (DateDiff("h", ShiftStartTime, ShiftEndTime))
@@ -78,7 +78,7 @@ slaCalculate = receivedTime + TimeSerial(0, tempHrCal2, 0) + TimeSerial(WeekendH
 
 
 
-'ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+        'Only use For Calculating total hrs from 'Start' date to 'End' date
 
 '
 'Result = (WorksheetFunction.NetworkDays(receivedTime, endTime) - 1) * (ShiftEndTime - ShiftStartTime)
@@ -94,9 +94,3 @@ slaCalculate = receivedTime + TimeSerial(0, tempHrCal2, 0) + TimeSerial(WeekendH
 
 
 End Function
-
-Sub test()
-MsgBox Application.WorksheetFunction.RoundUp(0.05, 0)
-End Sub
-
-
