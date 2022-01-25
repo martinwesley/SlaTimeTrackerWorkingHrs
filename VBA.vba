@@ -1,21 +1,21 @@
-Function slaCalculate(receivedTimeString As String, endTime As Date, Project As String, Task As String, subTask As String)
+Function slaCalculate(receivedTimeString As String, Project As String, Task As String, subTask As String)
 Dim slaTimeLimit As Long
-Dim Result As Date
-Dim Res As String
 Dim addType As String
 Dim supportDays As Integer
 Dim ShiftStartTimeString As String
 Dim ShiftEndTimeString As String
 Dim receivedTime, Workinghrs, ShiftStartTime, ShiftEndTime, FridayDate As Date
-Dim tempHrCal, tempHrCal2, WeekendHrs As Long
+Dim tempHrCal, tempHrCal2, WeekendHrs, SettingLastRow As Long
 
-For I = 1 To 400
+SettingLastRow = ThisWorkbook.Sheets("Setting").Cells(ThisWorkbook.Sheets("Setting").Rows.Count, "B").End(xlUp).Row
+
+For I = 1 To SettingLastRow
     If ThisWorkbook.Sheets("Setting").Range("B" & I).Value = Project And ThisWorkbook.Sheets("Setting").Range("C" & I).Value = subTask And ThisWorkbook.Sheets("Setting").Range("D" & I).Value = Task Then
-        addType = Sheets("Setting").Range("F" & I).Value
-        supportDays = Sheets("Setting").Range("G" & I).Value
-        slaTimeLimit = Sheets("Setting").Range("E" & I).Value
-        ShiftStartTimeString = Sheets("Setting").Range("H" & I).Value
-        ShiftEndTimeString = Sheets("Setting").Range("I" & I).Value
+        addType = ThisWorkbook.Sheets("Setting").Range("F" & I).Value
+        supportDays = ThisWorkbook.Sheets("Setting").Range("G" & I).Value
+        slaTimeLimit = ThisWorkbook.Sheets("Setting").Range("E" & I).Value
+        ShiftStartTimeString = ThisWorkbook.Sheets("Setting").Range("H" & I).Value
+        ShiftEndTimeString = ThisWorkbook.Sheets("Setting").Range("I" & I).Value
         Exit For
     End If
 Next
@@ -33,7 +33,7 @@ If TimeSerial(Hour:=Hour(receivedTime), Minute:=Minute(receivedTime), Second:=Se
     Else
         receivedTime = DateAdd("d", 1, receivedTime)
     End If
-        receivedTime = CDate(DateSerial(Year:=Year(receivedTime), Month:=Month(receivedTime), Day:=Day(receivedTime)) & " " & TimeSerial(Hour:=Hour(ShiftStartTime), Minute:=Minute(ShiftStartTime), Second:=Second(ShiftStartTime)))
+    receivedTime = CDate(DateSerial(Year:=Year(receivedTime), Month:=Month(receivedTime), Day:=Day(receivedTime)) & " " & TimeSerial(Hour:=Hour(ShiftStartTime), Minute:=Minute(ShiftStartTime), Second:=Second(ShiftStartTime)))
 ElseIf TimeSerial(Hour:=Hour(receivedTime), Minute:=Minute(receivedTime), Second:=Second(receivedTime)) < TimeSerial(Hour:=Hour(ShiftStartTime), Minute:=Minute(ShiftStartTime), Second:=Second(ShiftStartTime)) Then
     If Weekday(receivedTime, vbSaturday) = 1 Then
         receivedTime = DateAdd("d", 2, receivedTime)
@@ -60,7 +60,8 @@ ElseIf supportDays = 5 Then
     FridayDate = DateAdd("d", 8 - Weekday(receivedTime, vbFriday), receivedTime)
     FridayDate = CDate(DateSerial(Year:=Year(FridayDate), Month:=Month(FridayDate), Day:=Day(FridayDate)) & " " & TimeSerial(Hour:=Hour(ShiftEndTime), Minute:=Minute(ShiftEndTime), Second:=Second(ShiftEndTime)))
     
-    WeekendHrs = (TimeSerial(24, 0, 0)) * (DateDiff("h", ShiftStartTime, ShiftEndTime)) - WorksheetFunction.NetworkDays(receivedTime, FridayDate)
+   ' WeekendHrs = (TimeSerial(24, 0, 0)) * (DateDiff("h", ShiftStartTime, ShiftEndTime)) - WorksheetFunction.NetworkDays(receivedTime, FridayDate)
+    WeekendHrs = DateDiff("h", ShiftStartTime, ShiftEndTime) * DateDiff("d", receivedTime, FridayDate)
 
     If (WorksheetFunction.NetworkDays(receivedTime, FridayDate) = 1) Then
         If UBound(Split(CStr(CDbl(receivedTime)), ".")) <= 0 Then
@@ -71,19 +72,19 @@ ElseIf supportDays = 5 Then
     Else
         WeekendHrs = WeekendHrs + (DateDiff("h", ShiftStartTime, ShiftEndTime))
     End If
+    
     If UBound(Split(CStr(CDbl(receivedTime)), ".")) <= 0 Then
         WeekendHrs = WeekendHrs - WorksheetFunction.Median(WorksheetFunction.NetworkDays(receivedTime, receivedTime) * 0, ShiftEndTime, ShiftStartTime)
-        WeekendHrs = WorksheetFunction.RoundUp(((slaTimeLimit / 60) - WeekendHrs) / (DateDiff("h", ShiftStartTime, ShiftEndTime) * 5), 0)
-        WeekendHrs = WeekendHrs * 48
     Else
         WeekendHrs = WeekendHrs - WorksheetFunction.Median(WorksheetFunction.NetworkDays(receivedTime, receivedTime) * Split(CStr(CDbl(receivedTime)), ".")(1), ShiftEndTime, ShiftStartTime)
-        WeekendHrs = WorksheetFunction.RoundUp(((slaTimeLimit / 60) - WeekendHrs) / (DateDiff("h", ShiftStartTime, ShiftEndTime) * 5), 0)
-        If WeekendHrs < 0 Then WeekendHrs = 0
-        WeekendHrs = WeekendHrs * 48
     End If
+    
+    WeekendHrs = WorksheetFunction.RoundUp(((slaTimeLimit / 60) - WeekendHrs) / (DateDiff("h", ShiftStartTime, ShiftEndTime) * 5), 0)
+    If WeekendHrs < 0 Then WeekendHrs = 0
+    WeekendHrs = WeekendHrs * 48
 End If
 
-'Answer = receivedtime + (total hours including non working hrs) + weekends
+'Answer = receivedtime + (total hours including non working hrs) + weekends if any
 slaCalculate = receivedTime + TimeSerial(0, tempHrCal2, 0) + TimeSerial(WeekendHrs, 0, 0)
 
  '-------------------Only use For Calculating total hrs from 'Start' date to 'End' date--------------------------------
