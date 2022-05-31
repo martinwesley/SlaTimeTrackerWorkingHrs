@@ -20,12 +20,17 @@ For I = 1 To SettingLastRow
     End If
 Next
 
+If ShiftStartTimeString = "" Or ShiftEndTimeString = "" Or receivedTimeString = "" Then
+    slaCalculate = "-"
+    Exit Function
+End If
+
 receivedTime = CDate(receivedTimeString)
 ShiftStartTime = CDate(ShiftStartTimeString)
 ShiftEndTime = CDate(ShiftEndTimeString)
 
 'If received time is in non-working hrs make it to start of next working hrs or monday morning if received in weekend
-If TimeSerial(Hour:=Hour(receivedTime), Minute:=Minute(receivedTime), Second:=Second(receivedTime)) > TimeSerial(Hour:=Hour(ShiftEndTime), Minute:=Minute(ShiftEndTime), Second:=Second(ShiftEndTime)) Then
+If Weekday(receivedTime, vbSaturday) = 1 Or Weekday(receivedTime, vbSunday) = 1 Or TimeSerial(Hour:=Hour(receivedTime), Minute:=Minute(receivedTime), Second:=Second(receivedTime)) > TimeSerial(Hour:=Hour(ShiftEndTime), Minute:=Minute(ShiftEndTime), Second:=Second(ShiftEndTime)) Then
     If Weekday(receivedTime, vbFriday) = 1 Then
         receivedTime = DateAdd("d", 3, receivedTime)
     ElseIf Weekday(receivedTime, vbSaturday) = 1 Then
@@ -34,7 +39,7 @@ If TimeSerial(Hour:=Hour(receivedTime), Minute:=Minute(receivedTime), Second:=Se
         receivedTime = DateAdd("d", 1, receivedTime)
     End If
     receivedTime = CDate(DateSerial(Year:=Year(receivedTime), Month:=Month(receivedTime), Day:=Day(receivedTime)) & " " & TimeSerial(Hour:=Hour(ShiftStartTime), Minute:=Minute(ShiftStartTime), Second:=Second(ShiftStartTime)))
-ElseIf TimeSerial(Hour:=Hour(receivedTime), Minute:=Minute(receivedTime), Second:=Second(receivedTime)) < TimeSerial(Hour:=Hour(ShiftStartTime), Minute:=Minute(ShiftStartTime), Second:=Second(ShiftStartTime)) Then
+ElseIf Weekday(receivedTime, vbSaturday) = 1 Or Weekday(receivedTime, vbSunday) = 1 Or TimeSerial(Hour:=Hour(receivedTime), Minute:=Minute(receivedTime), Second:=Second(receivedTime)) < TimeSerial(Hour:=Hour(ShiftStartTime), Minute:=Minute(ShiftStartTime), Second:=Second(ShiftStartTime)) Then
     If Weekday(receivedTime, vbSaturday) = 1 Then
         receivedTime = DateAdd("d", 2, receivedTime)
     ElseIf Weekday(receivedTime, vbSunday) = 1 Then
@@ -46,59 +51,48 @@ End If
 'convert sla to minutes for easy calculation
 If addType = "hours" Then slaTimeLimit = slaTimeLimit * 60
 If addType = "days" Then slaTimeLimit = slaTimeLimit * (24 * 60)
-'Calculating hours to add with non-working hours
-tempHrCal = DateDiff("h", receivedTime, CDate(DateSerial(Year:=Year(receivedTime), Month:=Month(receivedTime), Day:=Day(receivedTime)) & " " & TimeSerial(Hour:=Hour(ShiftEndTime), Minute:=Minute(ShiftEndTime), Second:=Second(ShiftEndTime))))
-tempHrCal = (slaTimeLimit / 60) - tempHrCal
-tempHrCal2 = WorksheetFunction.RoundUp(tempHrCal / DateDiff("h", ShiftStartTime, ShiftEndTime), 0)
-tempHrCal2 = tempHrCal2 * (24 - (DateDiff("h", ShiftStartTime, ShiftEndTime)))
-tempHrCal2 = (tempHrCal2 * 60) + slaTimeLimit
 
 'For calculating weekends
 If supportDays = 7 Then
     WeekendHrs = 0
+    tempHrCal2 = slaTimeLimit
 ElseIf supportDays = 5 Then
-    FridayDate = DateAdd("d", 8 - Weekday(receivedTime, vbFriday), receivedTime)
-    FridayDate = CDate(DateSerial(Year:=Year(FridayDate), Month:=Month(FridayDate), Day:=Day(FridayDate)) & " " & TimeSerial(Hour:=Hour(ShiftEndTime), Minute:=Minute(ShiftEndTime), Second:=Second(ShiftEndTime)))
-    
-   ' WeekendHrs = (TimeSerial(24, 0, 0)) * (DateDiff("h", ShiftStartTime, ShiftEndTime)) - WorksheetFunction.NetworkDays(receivedTime, FridayDate)
-    WeekendHrs = DateDiff("h", ShiftStartTime, ShiftEndTime) * DateDiff("d", receivedTime, FridayDate)
+    'Calculating hours to add with non-working hours
+    tempHrCal = DateDiff("n", receivedTime, CDate(DateSerial(Year:=Year(receivedTime), Month:=Month(receivedTime), Day:=Day(receivedTime)) & " " & TimeSerial(Hour:=Hour(ShiftEndTime), Minute:=Minute(ShiftEndTime), Second:=Second(ShiftEndTime))))
+    tempHrCal = (slaTimeLimit / 60) - (tempHrCal / 60)
+    If tempHrCal > 0 Then
+        tempHrCal2 = WorksheetFunction.RoundUp(tempHrCal / (DateDiff("n", ShiftStartTime, ShiftEndTime) / 60), 0)
+        tempHrCal2 = tempHrCal2 * (24 - (DateDiff("n", ShiftStartTime, ShiftEndTime) / 60))
+        tempHrCal2 = Abs((tempHrCal2 * 60) + slaTimeLimit)
+    Else
+        tempHrCal2 = slaTimeLimit
+    End If
 
-    If (WorksheetFunction.NetworkDays(receivedTime, FridayDate) = 1) Then
-        If UBound(Split(CStr(CDbl(receivedTime)), ".")) <= 0 Then
-            WeekendHrs = WeekendHrs + WorksheetFunction.Median(0, ShiftEndTime, ShiftStartTime)
+    If Weekday(receivedTime, vbFriday) = 1 Then
+        FridayDate = CDate(DateSerial(Year:=Year(receivedTime), Month:=Month(receivedTime), Day:=Day(receivedTime)) & " " & TimeSerial(Hour:=Hour(ShiftEndTime), Minute:=Minute(ShiftEndTime), Second:=Second(ShiftEndTime)))
+        If receivedTime > FridayDate Then
+            FridayDate = DateAdd("d", 8 - Weekday(receivedTime, vbFriday), receivedTime)
         Else
-            WeekendHrs = WeekendHrs + WorksheetFunction.Median(Split(CStr(CDbl(FridayDate)), ".")(1), ShiftStartTime, ShiftEndTime)
+            FridayDate = receivedTime
         End If
     Else
-        WeekendHrs = WeekendHrs + (DateDiff("h", ShiftStartTime, ShiftEndTime))
+        FridayDate = DateAdd("d", 8 - Weekday(receivedTime, vbFriday), receivedTime)
     End If
-    
-    If UBound(Split(CStr(CDbl(receivedTime)), ".")) <= 0 Then
-        WeekendHrs = WeekendHrs - WorksheetFunction.Median(WorksheetFunction.NetworkDays(receivedTime, receivedTime) * 0, ShiftEndTime, ShiftStartTime)
-    Else
-        WeekendHrs = WeekendHrs - WorksheetFunction.Median(WorksheetFunction.NetworkDays(receivedTime, receivedTime) * Split(CStr(CDbl(receivedTime)), ".")(1), ShiftEndTime, ShiftStartTime)
-    End If
-    
-    WeekendHrs = WorksheetFunction.RoundUp(((slaTimeLimit / 60) - WeekendHrs) / (DateDiff("h", ShiftStartTime, ShiftEndTime) * 5), 0)
-    If WeekendHrs < 0 Then WeekendHrs = 0
+    FridayDate = CDate(DateSerial(Year:=Year(FridayDate), Month:=Month(FridayDate), Day:=Day(FridayDate)) & " " & TimeSerial(Hour:=Hour(ShiftEndTime), Minute:=Minute(ShiftEndTime), Second:=Second(ShiftEndTime)))
+   
+   ' WeekendHrs = (TimeSerial(24, 0, 0)) * (DateDiff("h", ShiftStartTime, ShiftEndTime)) - WorksheetFunction.NetworkDays(receivedTime, FridayDate)
+    WeekendHrs = (DateDiff("n", ShiftStartTime, ShiftEndTime) / 60) * (DateDiff("d", receivedTime, FridayDate) + 1)
+    'Subtracting hours from shift start time to received time
+    WeekendHrs = WeekendHrs - Abs(DateDiff("n", receivedTime, CDate(DateSerial(Year:=Year(receivedTime), Month:=Month(receivedTime), Day:=Day(receivedTime)) & " " & TimeSerial(Hour:=Hour(ShiftStartTime), Minute:=Minute(ShiftStartTime), Second:=Second(ShiftStartTime)))) / 60)
+    'Checking number of weekends it will take
+    WeekendHrs = WorksheetFunction.RoundUp(((slaTimeLimit / 60) - WeekendHrs) / ((DateDiff("n", ShiftStartTime, ShiftEndTime) / 60) * 5), 0)
+    'if remaining hours is less than friday shift end or (received date is friday and sla is less than working hours) then no weekend to be calculated
+    If WeekendHrs < 0 Or (Weekday(receivedTime, vbFriday) = 1 And slaTimeLimit <= DateDiff("n", receivedTime, FridayDate)) Then WeekendHrs = 0
     WeekendHrs = WeekendHrs * 48
 End If
 
 'Answer = receivedtime + (total hours including non working hrs) + weekends if any
 slaCalculate = receivedTime + TimeSerial(0, tempHrCal2, 0) + TimeSerial(WeekendHrs, 0, 0)
-
- '-------------------Only use For Calculating total hrs from 'Start' date to 'End' date--------------------------------
-
-'
-'Result = (WorksheetFunction.NetworkDays(receivedTime, endTime) - 1) * (ShiftEndTime - ShiftStartTime)
-'
-'If (WorksheetFunction.NetworkDays(endTime, endTime) = 1) Then
-'    Result = Result + WorksheetFunction.Median(WorksheetFunction.MOD(endTime, 1), ShiftEndTime, ShiftStartTime)
-'Else
-'    Result = Result + ShiftEndTime
-'End If
-'
-'Result = Result - WorksheetFunction.Median(WorksheetFunction.NetworkDays(receivedTime, receivedTime) * WorksheetFunction.MOD(receivedTime, 1), ShiftEndTime, ShiftStartTime)
-'---------------------------------------------------
         
 End Function
+
