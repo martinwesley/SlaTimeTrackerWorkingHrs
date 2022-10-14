@@ -92,7 +92,8 @@ ElseIf supportDays = 5 Then
 End If
 
 'Answer = receivedtime + (total hours including non working hrs) + weekends if any
-slaCalculate = receivedTime + TimeSerial(0, tempHrCal2, 0) + TimeSerial(WeekendHrs, 0, 0)
+slaCalculate = DateAdd("n", tempHrCal2, receivedTime) + TimeSerial(WeekendHrs, 0, 0)
+
         
 End Function
 
