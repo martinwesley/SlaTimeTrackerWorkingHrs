@@ -8,19 +8,19 @@ Dim receivedTime, Workinghrs, ShiftStartTime, ShiftEndTime, FridayDate As Date
 Dim tempHrCal, tempHrCal2, WeekendHrs, SettingLastRow As Long
 
 SettingLastRow = ThisWorkbook.Sheets("Setting").Cells(ThisWorkbook.Sheets("Setting").Rows.Count, "B").End(xlUp).Row
-
-For I = 1 To SettingLastRow
-    If ThisWorkbook.Sheets("Setting").Range("B" & I).Value = Project And ThisWorkbook.Sheets("Setting").Range("C" & I).Value = subTask And ThisWorkbook.Sheets("Setting").Range("D" & I).Value = Task Then
-        addType = ThisWorkbook.Sheets("Setting").Range("F" & I).Value
-        supportDays = ThisWorkbook.Sheets("Setting").Range("G" & I).Value
-        slaTimeLimit = ThisWorkbook.Sheets("Setting").Range("E" & I).Value
-        ShiftStartTimeString = ThisWorkbook.Sheets("Setting").Range("H" & I).Value
-        ShiftEndTimeString = ThisWorkbook.Sheets("Setting").Range("I" & I).Value
+slaTimeLimit = 0
+For i = 1 To SettingLastRow
+    If ThisWorkbook.Sheets("Setting").Range("B" & i).Value = Project And ThisWorkbook.Sheets("Setting").Range("C" & i).Value = subTask And ThisWorkbook.Sheets("Setting").Range("D" & i).Value = Task Then
+        addType = ThisWorkbook.Sheets("Setting").Range("F" & i).Value
+        supportDays = ThisWorkbook.Sheets("Setting").Range("G" & i).Value
+        slaTimeLimit = ThisWorkbook.Sheets("Setting").Range("E" & i).Value
+        ShiftStartTimeString = ThisWorkbook.Sheets("Setting").Range("H" & i).Value
+        ShiftEndTimeString = ThisWorkbook.Sheets("Setting").Range("I" & i).Value
         Exit For
     End If
 Next
 
-If ShiftStartTimeString = "" Or ShiftEndTimeString = "" Or receivedTimeString = "" Then
+If ShiftStartTimeString = "" Or ShiftEndTimeString = "" Or receivedTimeString = "" Or slaTimeLimit = 0 Then
     slaCalculate = "-"
     Exit Function
 End If
@@ -28,25 +28,6 @@ End If
 receivedTime = CDate(receivedTimeString)
 ShiftStartTime = CDate(ShiftStartTimeString)
 ShiftEndTime = CDate(ShiftEndTimeString)
-
-'If received time is in non-working hrs make it to start of next working hrs or monday morning if received in weekend
-If Weekday(receivedTime, vbSaturday) = 1 Or Weekday(receivedTime, vbSunday) = 1 Or TimeSerial(Hour:=Hour(receivedTime), Minute:=Minute(receivedTime), Second:=Second(receivedTime)) > TimeSerial(Hour:=Hour(ShiftEndTime), Minute:=Minute(ShiftEndTime), Second:=Second(ShiftEndTime)) Then
-    If Weekday(receivedTime, vbFriday) = 1 Then
-        receivedTime = DateAdd("d", 3, receivedTime)
-    ElseIf Weekday(receivedTime, vbSaturday) = 1 Then
-        receivedTime = DateAdd("d", 2, receivedTime)
-    Else
-        receivedTime = DateAdd("d", 1, receivedTime)
-    End If
-    receivedTime = CDate(DateSerial(Year:=Year(receivedTime), Month:=Month(receivedTime), Day:=Day(receivedTime)) & " " & TimeSerial(Hour:=Hour(ShiftStartTime), Minute:=Minute(ShiftStartTime), Second:=Second(ShiftStartTime)))
-ElseIf Weekday(receivedTime, vbSaturday) = 1 Or Weekday(receivedTime, vbSunday) = 1 Or TimeSerial(Hour:=Hour(receivedTime), Minute:=Minute(receivedTime), Second:=Second(receivedTime)) < TimeSerial(Hour:=Hour(ShiftStartTime), Minute:=Minute(ShiftStartTime), Second:=Second(ShiftStartTime)) Then
-    If Weekday(receivedTime, vbSaturday) = 1 Then
-        receivedTime = DateAdd("d", 2, receivedTime)
-    ElseIf Weekday(receivedTime, vbSunday) = 1 Then
-        receivedTime = DateAdd("d", 1, receivedTime)
-    End If
-    receivedTime = CDate(DateSerial(Year:=Year(receivedTime), Month:=Month(receivedTime), Day:=Day(receivedTime)) & " " & TimeSerial(Hour:=Hour(ShiftStartTime), Minute:=Minute(ShiftStartTime), Second:=Second(ShiftStartTime)))
-End If
 
 'convert sla to minutes for easy calculation
 If addType = "hours" Then slaTimeLimit = slaTimeLimit * 60
@@ -57,6 +38,26 @@ If supportDays = 7 Then
     WeekendHrs = 0
     tempHrCal2 = slaTimeLimit
 ElseIf supportDays = 5 Then
+
+    'If received time is in non-working hrs make it to start of next working hrs or monday morning if received in weekend
+    If Weekday(receivedTime, vbSaturday) = 1 Or Weekday(receivedTime, vbSunday) = 1 Or TimeSerial(Hour:=Hour(receivedTime), Minute:=Minute(receivedTime), Second:=Second(receivedTime)) > TimeSerial(Hour:=Hour(ShiftEndTime), Minute:=Minute(ShiftEndTime), Second:=Second(ShiftEndTime)) Then
+        If Weekday(receivedTime, vbFriday) = 1 Then
+            receivedTime = DateAdd("d", 3, receivedTime)
+        ElseIf Weekday(receivedTime, vbSaturday) = 1 Then
+            receivedTime = DateAdd("d", 2, receivedTime)
+        Else
+            receivedTime = DateAdd("d", 1, receivedTime)
+        End If
+        receivedTime = CDate(DateSerial(Year:=Year(receivedTime), Month:=Month(receivedTime), Day:=Day(receivedTime)) & " " & TimeSerial(Hour:=Hour(ShiftStartTime), Minute:=Minute(ShiftStartTime), Second:=Second(ShiftStartTime)))
+    ElseIf Weekday(receivedTime, vbSaturday) = 1 Or Weekday(receivedTime, vbSunday) = 1 Or TimeSerial(Hour:=Hour(receivedTime), Minute:=Minute(receivedTime), Second:=Second(receivedTime)) < TimeSerial(Hour:=Hour(ShiftStartTime), Minute:=Minute(ShiftStartTime), Second:=Second(ShiftStartTime)) Then
+        If Weekday(receivedTime, vbSaturday) = 1 Then
+            receivedTime = DateAdd("d", 2, receivedTime)
+        ElseIf Weekday(receivedTime, vbSunday) = 1 Then
+            receivedTime = DateAdd("d", 1, receivedTime)
+        End If
+        receivedTime = CDate(DateSerial(Year:=Year(receivedTime), Month:=Month(receivedTime), Day:=Day(receivedTime)) & " " & TimeSerial(Hour:=Hour(ShiftStartTime), Minute:=Minute(ShiftStartTime), Second:=Second(ShiftStartTime)))
+    End If
+
     'Calculating hours to add with non-working hours
     tempHrCal = DateDiff("n", receivedTime, CDate(DateSerial(Year:=Year(receivedTime), Month:=Month(receivedTime), Day:=Day(receivedTime)) & " " & TimeSerial(Hour:=Hour(ShiftEndTime), Minute:=Minute(ShiftEndTime), Second:=Second(ShiftEndTime))))
     tempHrCal = (slaTimeLimit / 60) - (tempHrCal / 60)
@@ -93,7 +94,6 @@ End If
 
 'Answer = receivedtime + (total hours including non working hrs) + weekends if any
 slaCalculate = DateAdd("n", tempHrCal2, receivedTime) + TimeSerial(WeekendHrs, 0, 0)
-
+'slaCalculate = receivedTime + TimeSerial(0, tempHrCal2, 0) + TimeSerial(WeekendHrs, 0, 0)
         
 End Function
-
